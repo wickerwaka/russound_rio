@@ -202,26 +202,3 @@ class Russound:
                 zone_id.device_str(), event_name,
                 " ".join(str(x) for x in args))
         return (yield from self._send_cmd(cmd))
-
-
-@asyncio.coroutine
-def demo(loop):
-
-    rus = Russound(loop, '192.168.105.116', 9621)
-    yield from rus.connect()
-
-    yield from rus.watch_zone(ZoneID(1))
-    yield from asyncio.sleep(1)
-    yield from rus.send_zone_event(ZoneID(1), "KeyPress", "Volume", 40)
-    yield from asyncio.sleep(1)
-    r = yield from rus.get_zone_variable(ZoneID(1), "volume")
-    print("Volume:", r)
-    yield from rus.close()
-    print("Done")
-
-
-logging.basicConfig(level=logging.DEBUG)
-loop = asyncio.get_event_loop()
-loop.set_debug(True)
-loop.run_until_complete(demo(loop))
-loop.close()

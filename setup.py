@@ -1,7 +1,7 @@
 from distutils.core import setup
 
 setup(
-        name='RussoundRIO',
+        name='russound_rio',
         version='0.1dev',
         packages=['russound_rio'],
         license='MIT',
