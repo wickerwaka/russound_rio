@@ -50,12 +50,9 @@ class Russound:
         self._watched_zones = set()
         self._watched_sources = set()
         self._zone_callbacks = {}
-        self._source_callbacks = {}
+        self._source_callbacks = []
 
     def _retrieve_cached_zone_variable(self, zone_id, _variable):
-        if zone_id not in self._watched_zones:
-            raise UncachedVariable
-
         variable = _variable.lower()
         try:
             s = self._zone_state[zone_id][variable]
@@ -77,9 +74,6 @@ class Russound:
             callback(zone_id, variable, value)
 
     def _retrieve_cached_source_variable(self, source_id, _variable):
-        if source_id not in self._watched_sources:
-            raise UncachedVariable
-
         variable = _variable.lower()
         try:
             s = self._source_state[source_id][variable]
@@ -95,9 +89,7 @@ class Russound:
         source_state[variable] = value
         logger.debug("Source Cache store S[%d].%s = %s",
                      source_id, variable, value)
-        for callback in self._source_callbacks.get(source_id, []):
-            callback(source_id, variable, value)
-        for callback in self._source_callbacks.get(None, []):
+        for callback in self._source_callbacks:
             callback(source_id, variable, value)
 
     def _process_response(self, res):
@@ -197,6 +189,12 @@ class Russound:
             return
         callbacks.remove(callback)
 
+    def add_source_callback(self, callback):
+        self._source_callbacks.append(callback)
+
+    def remove_source_callback(self, source_id, callback):
+        self._source_callbacks.remove(callback)
+
     @asyncio.coroutine
     def connect(self):
         logger.info("Connecting to %s:%s", self._host, self._port)
@@ -293,4 +291,3 @@ class Russound:
         return (yield from
                 self._send_cmd("WATCH S[%d] OFF" % (
                     source_id, )))
-
