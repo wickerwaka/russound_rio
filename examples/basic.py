@@ -11,8 +11,8 @@ from russound_rio import Russound, ZoneID, CommandException  # noqa: E402
 
 
 @asyncio.coroutine
-def demo(loop):
-    rus = Russound(loop, '192.168.105.116', 9621)
+def demo(loop, host):
+    rus = Russound(loop, host)
     yield from rus.connect()
 
     print("Determining valid zones")
@@ -56,5 +56,5 @@ def demo(loop):
 logging.basicConfig(level=logging.DEBUG)
 loop = asyncio.get_event_loop()
 loop.set_debug(True)
-loop.run_until_complete(demo(loop))
+loop.run_until_complete(demo(loop, sys.argv[1]))
 loop.close()

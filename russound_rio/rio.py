@@ -10,14 +10,22 @@ _re_response = re.compile(
 
 
 class CommandException(Exception):
+    """ A command sent to the controller caused an error. """
     pass
 
 
 class UncachedVariable(Exception):
+    """ A variable was not found in the cache. """
     pass
 
 
 class ZoneID:
+    """Uniquely identifies a zone
+
+    Russound controllers can be linked together to expand the total zone count.
+    Zones are identified by their zone index (1-N) within the controller they
+    belong to and the controller index (1-N) within the entire system.
+    """
     def __init__(self, zone, controller=1):
         self.zone = int(zone)
         self.controller = int(controller)
@@ -27,19 +35,29 @@ class ZoneID:
 
     def __eq__(self, other):
         return hasattr(other, 'zone') and \
-            hasattr(other, 'controller') and \
-            other.zone == self.zone and \
-            other.controller == self.controller
+                hasattr(other, 'controller') and \
+                other.zone == self.zone and \
+                other.controller == self.controller
 
     def __hash__(self):
         return hash(str(self))
 
     def device_str(self):
+        """
+        Generate a string that can be used to reference this zone in a RIO
+        command
+        """
         return "C[%d].Z[%d]" % (self.controller, self.zone)
 
 
 class Russound:
-    def __init__(self, loop, host, port):
+    """Manages the RIO connection to a Russound device."""
+
+    def __init__(self, loop, host, port=9621):
+        """
+        Initialize the Russound object using the event loop, host and port
+        provided.
+        """
         self._loop = loop
         self._host = host
         self._port = port
@@ -49,48 +67,62 @@ class Russound:
         self._zone_state = {}
         self._watched_zones = set()
         self._watched_sources = set()
-        self._zone_callbacks = {}
+        self._zone_callbacks = []
         self._source_callbacks = []
 
-    def _retrieve_cached_zone_variable(self, zone_id, _variable):
-        variable = _variable.lower()
+    def _retrieve_cached_zone_variable(self, zone_id, name):
+        """
+        Retrieves the cache state of the named variable for a particular
+        zone. If the variable has not been cached then the UncachedVariable
+        exception is raised.
+        """
         try:
-            s = self._zone_state[zone_id][variable]
+            s = self._zone_state[zone_id][name.lower()]
             logger.debug("Zone Cache retrieve %s.%s = %s",
-                         zone_id.device_str(), variable, s)
+                         zone_id.device_str(), name, s)
             return s
         except KeyError:
             raise UncachedVariable
 
-    def _store_cached_zone_variable(self, zone_id, _variable, value):
+    def _store_cached_zone_variable(self, zone_id, name, value):
+        """
+        Stores the current known value of a zone variable into the cache.
+        Calls any zone callbacks.
+        """
         zone_state = self._zone_state.setdefault(zone_id, {})
-        variable = _variable.lower()
-        zone_state[variable] = value
+        name = name.lower()
+        zone_state[name] = value
         logger.debug("Zone Cache store %s.%s = %s",
-                     zone_id.device_str(), variable, value)
-        for callback in self._zone_callbacks.get(zone_id, []):
-            callback(zone_id, variable, value)
-        for callback in self._zone_callbacks.get(None, []):
-            callback(zone_id, variable, value)
+                     zone_id.device_str(), name, value)
+        for callback in self._zone_callbacks:
+            callback(zone_id, name, value)
 
-    def _retrieve_cached_source_variable(self, source_id, _variable):
-        variable = _variable.lower()
+    def _retrieve_cached_source_variable(self, source_id, name):
+        """
+        Retrieves the cache state of the named variable for a particular
+        source. If the variable has not been cached then the UncachedVariable
+        exception is raised.
+        """
         try:
-            s = self._source_state[source_id][variable]
+            s = self._source_state[source_id][name.lower()]
             logger.debug("Source Cache retrieve S[%d].%s = %s",
-                         source_id, variable, s)
+                         source_id, name, s)
             return s
         except KeyError:
             raise UncachedVariable
 
-    def _store_cached_source_variable(self, source_id, _variable, value):
+    def _store_cached_source_variable(self, source_id, name, value):
+        """
+        Stores the current known value of a source variable into the cache.
+        Calls any source callbacks.
+        """
         source_state = self._source_state.setdefault(source_id, {})
-        variable = _variable.lower()
-        source_state[variable] = value
+        name = name.lower()
+        source_state[name] = value
         logger.debug("Source Cache store S[%d].%s = %s",
-                     source_id, variable, value)
+                     source_id, name, value)
         for callback in self._source_callbacks:
-            callback(source_id, variable, value)
+            callback(source_id, name, value)
 
     def _process_response(self, res):
         s = str(res, 'utf-8').strip()
@@ -178,25 +210,39 @@ class Russound:
         r = yield from future
         return r
 
-    def add_zone_callback(self, zone_id, callback):
-        callbacks = self._zone_callbacks.setdefault(zone_id, [])
-        callbacks.append(callback)
+    def add_zone_callback(self, callback):
+        """
+        Registers a callback to be called whenever a zone variable changes.
+        The callback will be passed three arguments: the zone_id, the variable
+        name and the variable value.
+        """
+        self._zone_callbacks.append(callback)
 
-    def remove_zone_callback(self, zone_id, callback):
-        try:
-            callbacks = self._zone_callbacks[zone_id]
-        except KeyError:
-            return
-        callbacks.remove(callback)
+    def remove_zone_callback(self, callback):
+        """
+        Removes a previously registered zone callback.
+        """
+        self._zone_callbacks.remove(callback)
 
     def add_source_callback(self, callback):
+        """
+        Registers a callback to be called whenever a source variable changes.
+        The callback will be passed three arguments: the source_id, the
+        variable name and the variable value.
+        """
         self._source_callbacks.append(callback)
 
     def remove_source_callback(self, source_id, callback):
+        """
+        Removes a previously registered zone callback.
+        """
         self._source_callbacks.remove(callback)
 
     @asyncio.coroutine
     def connect(self):
+        """
+        Connect to the controller and start processing responses.
+        """
         logger.info("Connecting to %s:%s", self._host, self._port)
         reader, writer = yield from asyncio.open_connection(
                 self._host, self._port, loop=self._loop)
@@ -206,6 +252,9 @@ class Russound:
 
     @asyncio.coroutine
     def close(self):
+        """
+        Disconnect from the controller.
+        """
         logger.info("Closing connection to %s:%s", self._host, self._port)
         self._ioloop_future.cancel()
         try:
@@ -215,11 +264,18 @@ class Russound:
 
     @asyncio.coroutine
     def set_zone_variable(self, zone_id, variable, value):
+        """
+        Set a zone variable to a new value.
+        """
         return self._send_cmd("SET %s.%s=\"%s\"" % (
             zone_id.device_str(), variable, value))
 
     @asyncio.coroutine
     def get_zone_variable(self, zone_id, variable):
+        """ Retrieve the current value of a zone variable.  If the variable is
+        not found in the local cache then the value is requested from the
+        controller.  """
+
         try:
             return self._retrieve_cached_zone_variable(zone_id, variable)
         except UncachedVariable:
@@ -227,6 +283,9 @@ class Russound:
                 zone_id.device_str(), variable)))
 
     def get_cached_zone_variable(self, zone_id, variable, default=None):
+        """ Retrieve the current value of a zone variable from the cache or
+        return the default value if the variable is not present. """
+
         try:
             return self._retrieve_cached_zone_variable(zone_id, variable)
         except UncachedVariable:
@@ -234,6 +293,10 @@ class Russound:
 
     @asyncio.coroutine
     def watch_zone(self, zone_id):
+        """ Add a zone to the watchlist.
+        Zones on the watchlist will push all
+        state changes (and those of the source they are currently connected to)
+        back to the client """
         r = yield from self._send_cmd(
                 "WATCH %s ON" % (zone_id.device_str(), ))
         self._watched_zones.add(zone_id)
@@ -241,12 +304,14 @@ class Russound:
 
     @asyncio.coroutine
     def unwatch_zone(self, zone_id):
+        """ Remove a zone from the watchlist. """
         self._watched_zones.remove(zone_id)
         return (yield from
                 self._send_cmd("WATCH %s OFF" % (zone_id.device_str(), )))
 
     @asyncio.coroutine
     def send_zone_event(self, zone_id, event_name, *args):
+        """ Send an event to a zone. """
         cmd = "EVENT %s!%s %s" % (
                 zone_id.device_str(), event_name,
                 " ".join(str(x) for x in args))
@@ -254,12 +319,16 @@ class Russound:
 
     @asyncio.coroutine
     def set_source_variable(self, source_id, variable, value):
+        """ Change the value of a source variable. """
         source_id = int(source_id)
         return self._send_cmd("SET S[%d].%s=\"%s\"" % (
             source_id, variable, value))
 
     @asyncio.coroutine
     def get_source_variable(self, source_id, variable):
+        """ Get the current value of a source variable. If the variable is not
+        in the cache it will be retrieved from the controller. """
+        
         source_id = int(source_id)
         try:
             return self._retrieve_cached_source_variable(
@@ -269,6 +338,9 @@ class Russound:
                 source_id, variable)))
 
     def get_cached_source_variable(self, source_id, variable, default=None):
+        """ Get the cached value of a source variable. If the variable is not
+        cached return the default value. """
+
         source_id = int(source_id)
         try:
             return self._retrieve_cached_source_variable(
@@ -278,6 +350,7 @@ class Russound:
 
     @asyncio.coroutine
     def watch_source(self, source_id):
+        """ Add a souce to the watchlist. """
         source_id = int(source_id)
         r = yield from self._send_cmd(
                 "WATCH S[%d] ON" % (source_id, ))
@@ -286,6 +359,7 @@ class Russound:
 
     @asyncio.coroutine
     def unwatch_source(self, source_id):
+        """ Remove a souce from the watchlist. """
         source_id = int(source_id)
         self._watched_sources.remove(source_id)
         return (yield from
