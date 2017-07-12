@@ -128,7 +128,7 @@ class Russound:
         s = str(res, 'utf-8').strip()
         ty, payload = s[0], s[2:]
         if ty == 'E':
-            logger.error("Device responded with error: %s", payload)
+            logger.debug("Device responded with error: %s", payload)
             raise CommandException(payload)
 
         m = _re_response.match(payload)
