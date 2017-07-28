@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '..'))
 
-from russound_rio import Russound, ZoneID, CommandException  # noqa: E402
+from russound_rio import Russound, ZoneID  # noqa: E402
 
 
 @asyncio.coroutine
@@ -17,28 +17,14 @@ def demo(loop, host):
 
     print("Determining valid zones")
     # Determine Zones
-    valid_zones = []
+    valid_zones = yield from rus.enumerate_zones()
 
-    @asyncio.coroutine
-    def try_watch_zone(zone_id):
-        try:
-            yield from rus.watch_zone(zone_id)
-            return zone_id
-        except CommandException:
-            return None
-
-    for controller in range(1, 17):
-        futures = [try_watch_zone(ZoneID(x, controller))
-                   for x in range(1, 17)]
-        results = yield from asyncio.gather(*futures)
-        if any(results):
-            valid_zones.extend([x for x in results if x])
-        else:
-            break
-
-    for zone_id in valid_zones:
-        name = yield from rus.get_zone_variable(zone_id, 'name')
+    for zone_id, name in valid_zones:
         print("%s: %s" % (zone_id, name))
+
+    sources = yield from rus.enumerate_sources()
+    for source_id, name in sources:
+        print("%s: %s" % (source_id, name))
 
     yield from rus.watch_zone(ZoneID(1))
     yield from asyncio.sleep(1)
