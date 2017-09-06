@@ -2,6 +2,11 @@ import asyncio
 import re
 import logging
 
+try:
+    from asyncio import ensure_future
+except ImportError:
+    from asyncio import async as ensure_future
+
 logger = logging.getLogger('russound')
 
 _re_response = re.compile(
@@ -150,9 +155,9 @@ class Russound:
 
     @asyncio.coroutine
     def _ioloop(self, reader, writer):
-        queue_future = asyncio.ensure_future(
+        queue_future = ensure_future(
                 self._cmd_queue.get(), loop=self._loop)
-        net_future = asyncio.ensure_future(
+        net_future = ensure_future(
                 reader.readline(), loop=self._loop)
         try:
             logger.debug("Starting IO loop")
@@ -168,7 +173,7 @@ class Russound:
                         self._process_response(response)
                     except CommandException:
                         pass
-                    net_future = asyncio.ensure_future(
+                    net_future = ensure_future(
                             reader.readline(), loop=self._loop)
 
                 if queue_future in done:
@@ -177,12 +182,12 @@ class Russound:
                     writer.write(bytearray(cmd, 'utf-8'))
                     yield from writer.drain()
 
-                    queue_future = asyncio.ensure_future(
+                    queue_future = ensure_future(
                             self._cmd_queue.get(), loop=self._loop)
 
                     while True:
                         response = yield from net_future
-                        net_future = asyncio.ensure_future(
+                        net_future = ensure_future(
                                 reader.readline(), loop=self._loop)
                         try:
                             ty, value = self._process_response(response)
@@ -246,7 +251,7 @@ class Russound:
         logger.info("Connecting to %s:%s", self._host, self._port)
         reader, writer = yield from asyncio.open_connection(
                 self._host, self._port, loop=self._loop)
-        self._ioloop_future = asyncio.ensure_future(
+        self._ioloop_future = ensure_future(
                 self._ioloop(reader, writer), loop=self._loop)
         logger.info("Connected")
 
