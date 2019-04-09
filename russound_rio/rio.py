@@ -1,7 +1,7 @@
 import asyncio
 import re
 import logging
- 
+
 logger = logging.getLogger('russound')
 
 _re_response = re.compile(
