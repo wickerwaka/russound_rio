@@ -21,10 +21,10 @@ class UncachedVariable(Exception):
 class ZoneID:
     """Uniquely identifies a zone
 
-   Russound controllers can be linked together to expand the total zone count.
-   Zones are identified by their zone index (1-N) within the controller they
-   belong to and the controller index (1-N) within the entire system.
-   """
+    Russound controllers can be linked together to expand the total zone count.
+    Zones are identified by their zone index (1-N) within the controller they
+    belong to and the controller index (1-N) within the entire system.
+    """
     def __init__(self, zone, controller=1):
         self.zone = int(zone)
         self.controller = int(controller)
