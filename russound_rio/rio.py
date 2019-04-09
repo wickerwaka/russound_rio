@@ -18,7 +18,6 @@ class UncachedVariable(Exception):
     """ A variable was not found in the cache. """
     pass
 
-
 class ZoneID:
     """Uniquely identifies a zone
 
