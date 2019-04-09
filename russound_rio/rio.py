@@ -8,13 +8,16 @@ _re_response = re.compile(
         r"(?:(?:S\[(?P<source>\d+)\])|(?:C\[(?P<controller>\d+)\]"
         r".Z\[(?P<zone>\d+)\]))\.(?P<variable>\S+)=\"(?P<value>.*)\"")
 
+
 class CommandException(Exception):
     """ A command sent to the controller caused an error. """
     pass
 
+
 class UncachedVariable(Exception):
     """ A variable was not found in the cache. """
     pass
+
 
 class ZoneID:
     """Uniquely identifies a zone
