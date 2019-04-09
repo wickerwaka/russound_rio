@@ -161,7 +161,7 @@ class Russound:
                         [queue_future, net_future],
                         return_when=asyncio.FIRST_COMPLETED,
                         loop=self._loop)
- 
+
                 if net_future in done:
                     response = net_future.result()
                     try:
@@ -170,13 +170,13 @@ class Russound:
                         pass
                     net_future = asyncio.ensure_future(
                             reader.readline(), loop=self._loop)
- 
+
                 if queue_future in done:
                     cmd, future = queue_future.result()
                     cmd += '\r'
                     writer.write(bytearray(cmd, 'utf-8'))
                     yield from writer.drain()
- 
+
                     queue_future = asyncio.ensure_future(
                             self._cmd_queue.get(), loop=self._loop)
 
@@ -217,13 +217,13 @@ class Russound:
         name and the variable value.
         """
         self._zone_callbacks.append(callback)
- 
+
     def remove_zone_callback(self, callback):
         """
         Removes a previously registered zone callback.
         """
         self._zone_callbacks.remove(callback)
- 
+
     def add_source_callback(self, callback):
         """
         Registers a callback to be called whenever a source variable changes.
@@ -231,7 +231,7 @@ class Russound:
         variable name and the variable value.
         """
         self._source_callbacks.append(callback)
- 
+
     def remove_source_callback(self, source_id, callback):
         """
         Removes a previously registered zone callback.
@@ -393,4 +393,3 @@ class Russound:
             except CommandException:
                 break
         return sources
-       
