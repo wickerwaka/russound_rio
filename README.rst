@@ -1,6 +1,6 @@
-======
+================================
 Russound RIO Async Python Module
-======
+================================
 .. image:: https://travis-ci.org/wickerwaka/russound_rio.svg?branch=master
     :target: https://travis-ci.org/wickerwaka/russound_rio
 
