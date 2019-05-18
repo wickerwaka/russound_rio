@@ -2,10 +2,11 @@ import asyncio
 import re
 import logging
 
-try:
-    from asyncio import ensure_future
-except ImportError:
-    from asyncio import async as ensure_future
+# Maintain compat with various 3.x async changes
+if hasattr(asyncio, 'ensure_future'):
+    ensure_future = asyncio.ensure_future
+else:
+    ensure_future = getattr(asyncio, 'async')
 
 logger = logging.getLogger('russound')
 
