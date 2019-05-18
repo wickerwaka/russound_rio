@@ -205,7 +205,7 @@ class Russound:
             queue_future.cancel()
             net_future.cancel()
             raise
-        except:
+        except Exception:
             logger.exception("Unhandled exception in IO loop")
             raise
 
