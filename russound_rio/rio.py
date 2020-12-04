@@ -27,7 +27,6 @@ class UncachedVariable(Exception):
 
 class ZoneID:
     """Uniquely identifies a zone
-
     Russound controllers can be linked together to expand the total zone count.
     Zones are identified by their zone index (1-N) within the controller they
     belong to and the controller index (1-N) within the entire system.
@@ -249,19 +248,19 @@ class Russound:
         """
         Connect to the controller and start processing responses.
         """
-        logger.info("Connecting to %s:%s", self._host, self._port)
+        """logger.info("Connecting to %s:%s", self._host, self._port)"""
         reader, writer = yield from asyncio.open_connection(
                 self._host, self._port, loop=self._loop)
         self._ioloop_future = ensure_future(
                 self._ioloop(reader, writer), loop=self._loop)
-        logger.info("Connected")
+        """logger.info("Connected")"""
 
     @asyncio.coroutine
     def close(self):
         """
         Disconnect from the controller.
         """
-        logger.info("Closing connection to %s:%s", self._host, self._port)
+        """logger.info("Closing connection to %s:%s", self._host, self._port)"""
         self._ioloop_future.cancel()
         try:
             yield from self._ioloop_future
@@ -303,6 +302,7 @@ class Russound:
         Zones on the watchlist will push all
         state changes (and those of the source they are currently connected to)
         back to the client """
+        """logger.debug("Watching zone %s", zone_id)"""
         r = yield from self._send_cmd(
                 "WATCH %s ON" % (zone_id.device_str(), ))
         self._watched_zones.add(zone_id)
@@ -372,10 +372,11 @@ class Russound:
     @asyncio.coroutine
     def watch_source(self, source_id):
         """ Add a souce to the watchlist. """
+        """logger.debug("Watching source %s", source_id)"""
         source_id = int(source_id)
         r = yield from self._send_cmd(
                 "WATCH S[%d] ON" % (source_id, ))
-        self._watched_source.add(source_id)
+        self._watched_sources.add(source_id)
         return r
 
     @asyncio.coroutine
@@ -389,13 +390,40 @@ class Russound:
 
     @asyncio.coroutine
     def enumerate_sources(self):
-        """ Return a list of (source_id, source_name) tuples """
+        """ Return a list of (source_id, source_name, is_internal_tuner) tuples """
         sources = []
         for source_id in range(1, 17):
             try:
-                name = yield from self.get_source_variable(source_id, 'name')
-                if name:
-                    sources.append((source_id, name))
+                source_name = yield from self.get_source_variable(source_id, 'name')
+                source_type = yield from self.get_source_variable(source_id, 'type')
+                if source_name and source_type:
+                    is_internal_tuner = False
+                    if source_type == "RNET AM/FM Tuner (Internal)":
+                        is_internal_tuner = True
+                    sources.append((source_id, source_name, is_internal_tuner))
             except CommandException:
                 break
         return sources
+
+    @asyncio.coroutine
+    def enumerate_presets(self):
+        """ Return a list of (source_id, bank_id, preset_id, index_id, preset_name) tuples """
+        banks = []
+        for source_id in range(1, 3):
+            try:
+                name = yield from self.get_source_variable(source_id, 'name')
+                source_type = yield from self.get_source_variable(source_id, 'type')
+                if name and source_type:
+                    if source_type == "RNET AM/FM Tuner (Internal)":
+                        for bank_id in range(1, 7):
+                            for preset_id in range(1, 7):
+                                preset_name = yield from self._send_cmd("GET S[%d].B[%d].P[%d].%s" % (
+                                    source_id, bank_id, preset_id, 'name'))
+                                preset_valid = yield from self._send_cmd("GET S[%d].B[%d].P[%d].%s" % (
+                                    source_id, bank_id, preset_id, 'valid'))
+                                if str(preset_valid) == "TRUE":
+                                    index_id = (((bank_id - 1) * 2) + preset_id)
+                                    banks.append((source_id, bank_id, preset_id, index_id, preset_name))
+            except CommandException:
+                break
+        return banks
