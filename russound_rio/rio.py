@@ -132,24 +132,20 @@ class Russound:
     def _process_response(self, res):
         s = str(res, 'utf-8').strip()
         ty, payload = s[0], s[2:]
-        """logger.debug("From Russound: %s", payload)"""
         if ty == 'E':
-            """logger.debug("Device responded with error: %s", payload)"""
+            logger.debug("Device responded with error: %s", payload)
             raise CommandException(payload)
 
         m = _re_response.match(payload)
         if not m:
-            """logger.debug("Process_response is not m")"""
             return ty, None
 
         p = m.groupdict()
         if p['source']:
-            """logger.debug("Process_response is P[source]")"""
             source_id = int(p['source'])
             self._store_cached_source_variable(
                     source_id, p['variable'], p['value'])
         elif p['zone']:
-            """logger.debug("Process_response is p[zone]")"""
             zone_id = ZoneID(controller=p['controller'], zone=p['zone'])
             self._store_cached_zone_variable(zone_id,
                                              p['variable'],
@@ -164,7 +160,7 @@ class Russound:
         net_future = ensure_future(
                 reader.readline(), loop=self._loop)
         try:
-            """logger.debug("Starting IO loop")"""
+            logger.debug("Starting IO loop")
             while True:
                 done, pending = yield from asyncio.wait(
                         [queue_future, net_future],
@@ -201,15 +197,15 @@ class Russound:
                         except CommandException as e:
                             future.set_exception(e)
                             break
-            """logger.debug("IO loop exited")"""
+            logger.debug("IO loop exited")
         except asyncio.CancelledError:
-            """logger.debug("IO loop cancelled")"""
+            logger.debug("IO loop cancelled")
             writer.close()
             queue_future.cancel()
             net_future.cancel()
             raise
         except Exception:
-            """logger.exception("Unhandled exception in IO loop")"""
+            logger.exception("Unhandled exception in IO loop")
             raise
 
     @asyncio.coroutine
