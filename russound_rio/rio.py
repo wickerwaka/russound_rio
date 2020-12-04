@@ -27,6 +27,7 @@ class UncachedVariable(Exception):
 
 class ZoneID:
     """Uniquely identifies a zone
+	
     Russound controllers can be linked together to expand the total zone count.
     Zones are identified by their zone index (1-N) within the controller they
     belong to and the controller index (1-N) within the entire system.
@@ -248,19 +249,19 @@ class Russound:
         """
         Connect to the controller and start processing responses.
         """
-        """logger.info("Connecting to %s:%s", self._host, self._port)"""
+        logger.info("Connecting to %s:%s", self._host, self._port)
         reader, writer = yield from asyncio.open_connection(
                 self._host, self._port, loop=self._loop)
         self._ioloop_future = ensure_future(
                 self._ioloop(reader, writer), loop=self._loop)
-        """logger.info("Connected")"""
+        logger.info("Connected")
 
     @asyncio.coroutine
     def close(self):
         """
         Disconnect from the controller.
         """
-        """logger.info("Closing connection to %s:%s", self._host, self._port)"""
+        logger.info("Closing connection to %s:%s", self._host, self._port)
         self._ioloop_future.cancel()
         try:
             yield from self._ioloop_future
