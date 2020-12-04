@@ -8,8 +8,7 @@ if hasattr(asyncio, 'ensure_future'):
 else:
     ensure_future = getattr(asyncio, 'async')
 
-#logger = logging.getLogger('russound')
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('russound')
 
 _re_response = re.compile(
         r"(?:(?:S\[(?P<source>\d+)\])|(?:C\[(?P<controller>\d+)\]"
