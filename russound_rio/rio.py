@@ -83,10 +83,8 @@ class Russound:
         """
         try:
             s = self._zone_state[zone_id][name.lower()]
-            """
             logger.debug("Zone Cache retrieve %s.%s = %s",
                          zone_id.device_str(), name, s)
-            """
             return s
         except KeyError:
             raise UncachedVariable
@@ -99,10 +97,8 @@ class Russound:
         zone_state = self._zone_state.setdefault(zone_id, {})
         name = name.lower()
         zone_state[name] = value
-        """
         logger.debug("Zone Cache store %s.%s = %s",
                      zone_id.device_str(), name, value)
-        """
         for callback in self._zone_callbacks:
             callback(zone_id, name, value)
 
@@ -114,10 +110,8 @@ class Russound:
         """
         try:
             s = self._source_state[source_id][name.lower()]
-            """
             logger.debug("Source Cache retrieve S[%d].%s = %s",
                          source_id, name, s)
-            """
             return s
         except KeyError:
             raise UncachedVariable
@@ -130,10 +124,8 @@ class Russound:
         source_state = self._source_state.setdefault(source_id, {})
         name = name.lower()
         source_state[name] = value
-        """
         logger.debug("Source Cache store S[%d].%s = %s",
                      source_id, name, value)
-        """
         for callback in self._source_callbacks:
             callback(source_id, name, value)
 
