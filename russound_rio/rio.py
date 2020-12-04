@@ -8,7 +8,8 @@ if hasattr(asyncio, 'ensure_future'):
 else:
     ensure_future = getattr(asyncio, 'async')
 
-logger = logging.getLogger('russound')
+#logger = logging.getLogger('russound')
+logger = logging.getLogger(__name__)
 
 _re_response = re.compile(
         r"(?:(?:S\[(?P<source>\d+)\])|(?:C\[(?P<controller>\d+)\]"
@@ -27,7 +28,6 @@ class UncachedVariable(Exception):
 
 class ZoneID:
     """Uniquely identifies a zone
-
     Russound controllers can be linked together to expand the total zone count.
     Zones are identified by their zone index (1-N) within the controller they
     belong to and the controller index (1-N) within the entire system.
@@ -84,8 +84,10 @@ class Russound:
         """
         try:
             s = self._zone_state[zone_id][name.lower()]
+            """
             logger.debug("Zone Cache retrieve %s.%s = %s",
                          zone_id.device_str(), name, s)
+            """
             return s
         except KeyError:
             raise UncachedVariable
@@ -98,8 +100,10 @@ class Russound:
         zone_state = self._zone_state.setdefault(zone_id, {})
         name = name.lower()
         zone_state[name] = value
+        """
         logger.debug("Zone Cache store %s.%s = %s",
                      zone_id.device_str(), name, value)
+        """
         for callback in self._zone_callbacks:
             callback(zone_id, name, value)
 
@@ -111,8 +115,10 @@ class Russound:
         """
         try:
             s = self._source_state[source_id][name.lower()]
+            """
             logger.debug("Source Cache retrieve S[%d].%s = %s",
                          source_id, name, s)
+            """
             return s
         except KeyError:
             raise UncachedVariable
@@ -125,28 +131,34 @@ class Russound:
         source_state = self._source_state.setdefault(source_id, {})
         name = name.lower()
         source_state[name] = value
+        """
         logger.debug("Source Cache store S[%d].%s = %s",
                      source_id, name, value)
+        """
         for callback in self._source_callbacks:
             callback(source_id, name, value)
 
     def _process_response(self, res):
         s = str(res, 'utf-8').strip()
         ty, payload = s[0], s[2:]
+        """logger.debug("From Russound: %s", payload)"""
         if ty == 'E':
-            logger.debug("Device responded with error: %s", payload)
+            """logger.debug("Device responded with error: %s", payload)"""
             raise CommandException(payload)
 
         m = _re_response.match(payload)
         if not m:
+            """logger.debug("Process_response is not m")"""
             return ty, None
 
         p = m.groupdict()
         if p['source']:
+            """logger.debug("Process_response is P[source]")"""
             source_id = int(p['source'])
             self._store_cached_source_variable(
                     source_id, p['variable'], p['value'])
         elif p['zone']:
+            """logger.debug("Process_response is p[zone]")"""
             zone_id = ZoneID(controller=p['controller'], zone=p['zone'])
             self._store_cached_zone_variable(zone_id,
                                              p['variable'],
@@ -161,7 +173,7 @@ class Russound:
         net_future = ensure_future(
                 reader.readline(), loop=self._loop)
         try:
-            logger.debug("Starting IO loop")
+            """logger.debug("Starting IO loop")"""
             while True:
                 done, pending = yield from asyncio.wait(
                         [queue_future, net_future],
@@ -198,15 +210,15 @@ class Russound:
                         except CommandException as e:
                             future.set_exception(e)
                             break
-            logger.debug("IO loop exited")
+            """logger.debug("IO loop exited")"""
         except asyncio.CancelledError:
-            logger.debug("IO loop cancelled")
+            """logger.debug("IO loop cancelled")"""
             writer.close()
             queue_future.cancel()
             net_future.cancel()
             raise
         except Exception:
-            logger.exception("Unhandled exception in IO loop")
+            """logger.exception("Unhandled exception in IO loop")"""
             raise
 
     @asyncio.coroutine
@@ -249,19 +261,19 @@ class Russound:
         """
         Connect to the controller and start processing responses.
         """
-        logger.info("Connecting to %s:%s", self._host, self._port)
+        """logger.info("Connecting to %s:%s", self._host, self._port)"""
         reader, writer = yield from asyncio.open_connection(
                 self._host, self._port, loop=self._loop)
         self._ioloop_future = ensure_future(
                 self._ioloop(reader, writer), loop=self._loop)
-        logger.info("Connected")
+        """logger.info("Connected")"""
 
     @asyncio.coroutine
     def close(self):
         """
         Disconnect from the controller.
         """
-        logger.info("Closing connection to %s:%s", self._host, self._port)
+        """logger.info("Closing connection to %s:%s", self._host, self._port)"""
         self._ioloop_future.cancel()
         try:
             yield from self._ioloop_future
@@ -303,6 +315,7 @@ class Russound:
         Zones on the watchlist will push all
         state changes (and those of the source they are currently connected to)
         back to the client """
+        """logger.debug("Watching zone %s", zone_id)"""
         r = yield from self._send_cmd(
                 "WATCH %s ON" % (zone_id.device_str(), ))
         self._watched_zones.add(zone_id)
@@ -372,10 +385,11 @@ class Russound:
     @asyncio.coroutine
     def watch_source(self, source_id):
         """ Add a souce to the watchlist. """
+        """logger.debug("Watching source %s", source_id)"""
         source_id = int(source_id)
         r = yield from self._send_cmd(
                 "WATCH S[%d] ON" % (source_id, ))
-        self._watched_source.add(source_id)
+        self._watched_sources.add(source_id)
         return r
 
     @asyncio.coroutine
@@ -389,13 +403,40 @@ class Russound:
 
     @asyncio.coroutine
     def enumerate_sources(self):
-        """ Return a list of (source_id, source_name) tuples """
+        """ Return a list of (source_id, name, is_internal_tuner) tuples """
         sources = []
         for source_id in range(1, 17):
             try:
                 name = yield from self.get_source_variable(source_id, 'name')
-                if name:
-                    sources.append((source_id, name))
+                source_type = yield from self.get_source_variable(source_id, 'type')
+                if name and source_type:
+                    is_internal_tuner = False
+                    if source_type == "RNET AM/FM Tuner (Internal)":
+                        is_internal_tuner = True
+                    sources.append((source_id, name, is_internal_tuner))
             except CommandException:
                 break
         return sources
+ 
+    @asyncio.coroutine
+    def enumerate_presets(self):
+        """ Return a list of (source_id, bank_id, preset_id, index_id, preset_name) tuples """
+        banks = []
+        for source_id in range(1, 3):
+            try:
+                name = yield from self.get_source_variable(source_id, 'name')
+                source_type = yield from self.get_source_variable(source_id, 'type')
+                if name and source_type:
+                    if source_type == "RNET AM/FM Tuner (Internal)":
+                        for bank_id in range(1, 7):
+                            for preset_id in range(1, 7):
+                                preset_name = yield from self._send_cmd("GET S[%d].B[%d].P[%d].%s" % (
+                                    source_id, bank_id, preset_id, 'name'))
+                                preset_valid = yield from self._send_cmd("GET S[%d].B[%d].P[%d].%s" % (
+                                    source_id, bank_id, preset_id, 'valid'))
+                                if str(preset_valid) == "TRUE":
+                                    index_id = (((bank_id - 1) * 2) + preset_id)
+                                    banks.append((source_id, bank_id, preset_id, index_id, preset_name))
+            except CommandException:
+                break
+        return banks
