@@ -375,7 +375,7 @@ class Russound:
         source_id = int(source_id)
         r = yield from self._send_cmd(
                 "WATCH S[%d] ON" % (source_id, ))
-        self._watched_source.add(source_id)
+        self._watched_sources.add(source_id)
         return r
 
     @asyncio.coroutine
