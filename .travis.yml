@@ -2,10 +2,10 @@ sudo: required
 dist: xenial
 language: python
 python:
-  - 3.4
-  - 3.5
-  - 3.6
   - 3.7
+  - 3.8
+  - 3.9
+  - 3.10
 install: pip install tox-travis
 script: tox
 
@@ -17,5 +17,5 @@ deploy:
   on:
     tags: true
     branch: master
-    python: '3.6'
+    python: '3.10'
 
