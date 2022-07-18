@@ -29,6 +29,7 @@ jobs:
         --outdir dist/
 
     - name: Publish distribution package to Test PyPI
+      continue-on-error: true
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
